@@ -1,12 +1,12 @@
-import pandas as pd
+from sklearn.metrics import classification_report, confusion_matrix, matthews_corrcoef
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, matthews_corrcoef
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+import pandas as pd
 
 
 # Custom transformer to split subjects

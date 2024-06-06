@@ -13,6 +13,8 @@ dependencies:
   - pytorch-cuda=12.1
   - pip:
     - -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - openai
+    - aiohttp
     - datasets
     - evaluate
     - IProgress 
