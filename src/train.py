@@ -1,9 +1,10 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, TrainingArguments, Trainer
-from datasets import Dataset, DatasetDict, load_metric
+from datasets import Dataset, DatasetDict
 from sklearn.preprocessing import LabelEncoder
 from langchain.prompts import PromptTemplate
 from joblib import Parallel, delayed
 from yaml import safe_load
+from evaluate import load
 from typing import Dict
 import pandas as pd
 
@@ -48,16 +49,17 @@ class ClassificationTrainer:
             config["model_name"],
             num_labels=config["num_labels"],
             trust_remote_code=True,
+            device_map="cuda",
         )
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
 
-        self.accuracy_metric = load_metric("accuracy")
-        self.precision_metric = load_metric("precision")
-        self.recall_metric = load_metric("recall")
-        self.f1_metric = load_metric("f1")
+        self.accuracy_metric = load("accuracy", trust_remote_code=True)
+        self.precision_metric = load("precision", trust_remote_code=True)
+        self.recall_metric = load("recall", trust_remote_code=True)
+        self.f1_metric = load("f1", trust_remote_code=True)
         if config["num_labels"] == 2:
-            self.mcc_metric = load_metric("matthews_correlation")
+            self.mcc_metric = load("matthews_correlation", trust_remote_code=True)
 
     def _define_labels(self, df: pd.DataFrame):
         if self.config["num_labels"] == 6:
