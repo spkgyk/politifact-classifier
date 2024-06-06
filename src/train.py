@@ -1,8 +1,9 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, TrainingArguments, Trainer
+from datasets import Dataset, DatasetDict, load_metric
 from sklearn.preprocessing import LabelEncoder
 from langchain.prompts import PromptTemplate
-from datasets import Dataset, DatasetDict
 from joblib import Parallel, delayed
+from yaml import safe_load
 from typing import Dict
 import pandas as pd
 
@@ -36,19 +37,40 @@ def create_prompt(row):
         "statement_context": statement_context,
     }
 
-    return PROMPT.format(**inputs)
+    return PROMPT.format(**inputs).lower()
 
 
 class ClassificationTrainer:
     def __init__(self, config: Dict) -> None:
-        self.tokenizer = AutoTokenizer.from_pretrained(config["model_name"])
-        self.model = AutoModelForSequenceClassification.from_pretrained(config["model_name"], num_labels=config["num_labels"])
+        self.config = config
+        self.tokenizer = AutoTokenizer.from_pretrained(config["model_name"], trust_remote_code=True)
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            config["model_name"],
+            num_labels=config["num_labels"],
+            trust_remote_code=True,
+        )
+        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+        self.training_arguments = TrainingArguments(**config["training_arguments"])
 
-    @staticmethod
-    def _format_data(df: pd.DataFrame):
+        self.accuracy_metric = load_metric("accuracy")
+        self.precision_metric = load_metric("precision")
+        self.recall_metric = load_metric("recall")
+        self.f1_metric = load_metric("f1")
+        if config["num_labels"] == 2:
+            self.mcc_metric = load_metric("matthews_correlation")
+
+    def _define_labels(self, df: pd.DataFrame):
+        if self.config["num_labels"] == 6:
+            label_encoder = LabelEncoder()
+            df["label"] = label_encoder.fit_transform(df["Label"])
+        elif self.config["num_labels"] == 2:
+            df["label"] = df["Label"].apply(lambda x: int("true" in x.lower()))
+
+        return df
+
+    def _format_data(self, df: pd.DataFrame):
         # get numerical values for class lables
-        label_encoder = LabelEncoder()
-        df["label"] = label_encoder.fit_transform(df["Label"])
+        df = self._define_labels(df)
 
         # create prompt from all data labels
         df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
@@ -85,15 +107,40 @@ class ClassificationTrainer:
         return dataset
 
     def tokenize(self, entry):
-        return self.tokenizer(entry["text"], padding=True, truncation=True)
+        return self.tokenizer(entry["prompt"])
+
+    def compute_metrics(self, pred):
+        references = pred.label_ids
+        predictions = pred.predictions.argmax(-1)
+        accuracy = self.accuracy_metric.compute(predictions=predictions, references=references)
+        precision = self.precision_metric.compute(predictions=predictions, references=references, average="weighted")
+        recall = self.recall_metric.compute(predictions=predictions, references=references, average="weighted")
+        f1 = self.f1_metric.compute(predictions=predictions, references=references, average="weighted")
+        if self.config["num_labels"] == 2:
+            mcc = self.mcc_metric.compute(predictions=predictions, references=references)
+            return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "mcc": mcc}
+        else:
+            return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
 
     def train(self, df: pd.DataFrame):
         dataset = self._format_data(df)
-        print(dataset)
+        dataset.map(self.tokenize, batched=True)
+        self.trainer = Trainer(
+            model=self.model,
+            args=self.training_arguments,
+            data_collator=self.data_collator,
+            train_dataset=dataset["train"],
+            eval_dataset=dataset["validation"],
+            tokenizer=self.tokenizer,
+            compute_metrics=self.compute_metrics,
+        )
+        self.trainer.train()
 
 
 if __name__ == "__main__":
     # load data
     df = pd.read_csv("data/data.csv")
-    trainer = ClassificationTrainer()
+    with open("data/config.yaml") as f:
+        config = safe_load(f)
+    trainer = ClassificationTrainer(config)
     trainer.train(df)
