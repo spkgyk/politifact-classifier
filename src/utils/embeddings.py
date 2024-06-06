@@ -7,13 +7,13 @@ import os
 openai_key = os.environ.get("OPENAI_KEY")
 
 
-async def fetch_embeddings(session, texts, model="text-embedding-3-small"):
+async def fetch_embeddings(session, texts, batch_id, model="text-embedding-3-small"):
     api_url = "https://api.openai.com/v1/embeddings"
     headers = {"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"}
     data = {"input": texts, "model": model}
     async with session.post(api_url, headers=headers, json=data) as response:
         response_data = await response.json()
-        return [item["embedding"] for item in response_data["data"]]
+        return {batch_id: [item["embedding"] for item in response_data["data"]]}
 
 
 async def get_all_embeddings(texts, model="text-embedding-3-small", batch_size=20):
@@ -21,12 +21,12 @@ async def get_all_embeddings(texts, model="text-embedding-3-small", batch_size=2
         tasks = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            tasks.append(fetch_embeddings(session, batch, model))
+            tasks.append(fetch_embeddings(session, batch, i, model))
 
-        embeddings = []
+        embeddings = {}
         for task in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
             embeddings_batch = await task
-            embeddings.extend(embeddings_batch)
+            embeddings.update(embeddings_batch)
 
         return embeddings
 
