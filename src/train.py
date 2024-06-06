@@ -137,4 +137,4 @@ class ClassificationTrainer:
         )
         self.trainer.train()
         self.trainer.evaluate()
-        self.trainer.save_model("true_false")
+        self.trainer.save_model("true_false_model")
