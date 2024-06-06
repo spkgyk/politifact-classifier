@@ -1,0 +1,21 @@
+name: SentenceClassification
+channels:
+  - nvidia
+  - pytorch
+  - defaults
+  - conda-forge
+dependencies:
+  - pip
+  - python
+  - pytorch
+  - torchaudio
+  - torchvision
+  - pytorch-cuda=12.1
+  - pip:
+    - -i https://pypi.tuna.tsinghua.edu.cn/simple
+    - datasets
+    - accelerate
+    - transformers
+    - scikit-learn
+
+
