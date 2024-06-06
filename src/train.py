@@ -3,7 +3,6 @@ from datasets import Dataset, DatasetDict
 from sklearn.preprocessing import LabelEncoder
 from langchain.prompts import PromptTemplate
 from joblib import Parallel, delayed
-from yaml import safe_load
 from evaluate import load
 from typing import Dict
 import pandas as pd
@@ -71,7 +70,7 @@ class ClassificationTrainer:
         return df
 
     def _format_data(self, df: pd.DataFrame):
-        # get numerical values for class lables
+        # get numerical values for class labels
         df = self._define_labels(df)
 
         # create prompt from all data labels
@@ -126,7 +125,7 @@ class ClassificationTrainer:
 
     def train(self, df: pd.DataFrame):
         dataset = self._format_data(df)
-        dataset.map(self.tokenize, batched=True)
+        dataset = dataset.map(self.tokenize, batched=True)
         self.trainer = Trainer(
             model=self.model,
             args=self.training_arguments,
@@ -137,12 +136,5 @@ class ClassificationTrainer:
             compute_metrics=self.compute_metrics,
         )
         self.trainer.train()
-
-
-if __name__ == "__main__":
-    # load data
-    df = pd.read_csv("data/data.csv")
-    with open("data/config.yaml") as f:
-        config = safe_load(f)
-    trainer = ClassificationTrainer(config)
-    trainer.train(df)
+        self.trainer.evaluate()
+        self.trainer.save_model("true_false")

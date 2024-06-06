@@ -15,6 +15,8 @@ dependencies:
     - -i https://pypi.tuna.tsinghua.edu.cn/simple
     - datasets
     - evaluate
+    - IProgress 
+    - ipykernel 
     - accelerate
     - transformers
     - scikit-learn
