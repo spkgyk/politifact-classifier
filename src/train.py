@@ -63,9 +63,9 @@ class ClassificationTrainer:
     def _define_labels(self, df: pd.DataFrame):
         if self.config["num_labels"] == 6:
             label_encoder = LabelEncoder()
-            df["label"] = label_encoder.fit_transform(df["Label"])
+            df["class"] = label_encoder.fit_transform(df["Label"])
         elif self.config["num_labels"] == 2:
-            df["label"] = df["Label"].apply(lambda x: int("true" in x.lower()))
+            df["class"] = df["Label"].apply(lambda x: int("true" in x.lower()))
 
         return df
 
@@ -92,8 +92,8 @@ class ClassificationTrainer:
         )
 
         # Define the split indices
-        train_end = int(0.85 * len(df))
-        validate_end = int(0.9 * len(df))
+        train_end = int(0.8 * len(df))
+        validate_end = int(0.95 * len(df))
 
         # Split the DataFrame
         train_df = df.iloc[:train_end]
@@ -114,9 +114,9 @@ class ClassificationTrainer:
         references = pred.label_ids
         predictions = pred.predictions.argmax(-1)
         accuracy = self.accuracy_metric.compute(predictions=predictions, references=references)
-        precision = self.precision_metric.compute(predictions=predictions, references=references, average="weighted")
-        recall = self.recall_metric.compute(predictions=predictions, references=references, average="weighted")
-        f1 = self.f1_metric.compute(predictions=predictions, references=references, average="weighted")
+        precision = self.precision_metric.compute(predictions=predictions, references=references, average="binary")
+        recall = self.recall_metric.compute(predictions=predictions, references=references, average="binary")
+        f1 = self.f1_metric.compute(predictions=predictions, references=references, average="binary")
         if self.config["num_labels"] == 2:
             mcc = self.mcc_metric.compute(predictions=predictions, references=references)
             return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "mcc": mcc}
@@ -135,6 +135,6 @@ class ClassificationTrainer:
             tokenizer=self.tokenizer,
             compute_metrics=self.compute_metrics,
         )
-        self.trainer.train()
         self.trainer.evaluate()
+        self.trainer.train()
         self.trainer.save_model("true_false_model")
