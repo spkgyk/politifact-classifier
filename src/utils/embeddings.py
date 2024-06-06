@@ -28,7 +28,12 @@ async def get_all_embeddings(texts, model="text-embedding-3-small", batch_size=2
             embeddings_batch = await task
             embeddings.update(embeddings_batch)
 
-        return embeddings
+        # Sort embeddings by batch index and flatten the list
+        sorted_embeddings = []
+        for i in sorted(embeddings.keys()):
+            sorted_embeddings.extend(embeddings[i])
+
+        return sorted_embeddings
 
 
 def apply_async(df, func, model, batch_size):

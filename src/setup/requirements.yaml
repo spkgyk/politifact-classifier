@@ -19,6 +19,7 @@ dependencies:
     - evaluate
     - IProgress 
     - ipykernel 
+    - langchain
     - accelerate
     - transformers
     - scikit-learn
