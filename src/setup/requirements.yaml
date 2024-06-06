@@ -20,6 +20,8 @@ dependencies:
     - IProgress 
     - ipykernel 
     - langchain
+    - ipywidgets
+    - jupyterlab
     - accelerate
     - transformers
     - scikit-learn

@@ -63,9 +63,9 @@ class ClassificationTrainer:
     def _define_labels(self, df: pd.DataFrame):
         if self.config["num_labels"] == 6:
             label_encoder = LabelEncoder()
-            df["class"] = label_encoder.fit_transform(df["Label"])
+            df["label"] = label_encoder.fit_transform(df["Label"])
         elif self.config["num_labels"] == 2:
-            df["class"] = df["Label"].apply(lambda x: int("true" in x.lower()))
+            df["label"] = df["Label"].apply(lambda x: int("true" in x.lower()))
 
         return df
 
@@ -93,18 +93,15 @@ class ClassificationTrainer:
 
         # Define the split indices
         train_end = int(0.8 * len(df))
-        validate_end = int(0.95 * len(df))
 
         # Split the DataFrame
         train_df = df.iloc[:train_end]
-        validate_df = df.iloc[train_end:validate_end]
-        test_df = df.iloc[validate_end:]
+        validate_df = df.iloc[train_end:]
 
         # Convert to HF dataset
         dataset = DatasetDict()
         dataset["train"] = Dataset.from_pandas(train_df)
         dataset["validation"] = Dataset.from_pandas(validate_df)
-        dataset["test"] = Dataset.from_pandas(test_df)
         return dataset
 
     def tokenize(self, entry):
@@ -135,6 +132,17 @@ class ClassificationTrainer:
             tokenizer=self.tokenizer,
             compute_metrics=self.compute_metrics,
         )
-        self.trainer.evaluate()
         self.trainer.train()
-        self.trainer.save_model("true_false_model")
+        self.trainer.evaluate()
+        self.trainer.save_model("true_false_model_2")
+
+
+if __name__ == "__main__":
+    from yaml import safe_load
+
+    df = pd.read_csv("data/data.csv")
+    with open("data/config.yaml") as f:
+        config = safe_load(f)
+
+    trainer = ClassificationTrainer(config)
+    trainer.train(df)

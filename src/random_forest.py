@@ -42,17 +42,17 @@ class AdaEmbeddingTransformer(BaseEstimator, TransformerMixin):
 
 
 # Load data
-data = pd.read_csv("data/data_ada.csv")
+data = pd.read_csv("data/data.csv")
 
 # Features and Labels
 X = data.drop(columns=["Label"])
 y = data["Label"].apply(lambda x: int("true" in x.lower()))
 
 # Convert ADA embeddings from string to numerical list
-X["ada_embedding"] = X["ada_embedding"].apply(eval)
+# X["ada_embedding"] = X["ada_embedding"].apply(eval)
 
 # Text Vectorization
-# text_transformer = Pipeline(steps=[("tfidf", TfidfVectorizer(stop_words="english"))])
+text_transformer = Pipeline(steps=[("tfidf", TfidfVectorizer(stop_words="english"))])
 
 # Categorical Encoding for subjects
 subject_transformer = Pipeline(steps=[("splitter", SubjectSplitter())])
@@ -64,10 +64,10 @@ categorical_transformer = Pipeline(steps=[("onehot", OneHotEncoder(handle_unknow
 # Preprocessing Pipeline
 preprocessor = ColumnTransformer(
     transformers=[
-        # ("text", text_transformer, "statement"),
+        ("text", text_transformer, "statement"),
         ("subject", subject_transformer, "subjects"),
         ("cat", categorical_transformer, categorical_features),
-        ("ada", AdaEmbeddingTransformer(), "ada_embedding"),
+        # ("ada", AdaEmbeddingTransformer(), "ada_embedding"),
     ]
 )
 
@@ -77,7 +77,10 @@ model = Pipeline(
         ("preprocessor", preprocessor),
         (
             "classifier",
-            VotingClassifier(estimators=[("rf", RandomForestClassifier()), ("gb", GradientBoostingClassifier())], voting="soft"),
+            RandomForestClassifier(),
+            # VotingClassifier(
+            # estimators=[("rf", RandomForestClassifier(400)), ("gb", GradientBoostingClassifier(n_estimators=400))], voting="soft"
+            # ),
         ),
     ]
 )
