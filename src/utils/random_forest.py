@@ -73,21 +73,25 @@ class MyModel:
         self.model.fit(X_train, y_train)
 
         y_pred = self.model.predict(X_test)
-        # Classification report
+        # Calculate metrics
+        mcc = matthews_corrcoef(y_test, y_pred)
         report = classification_report(y_test, y_pred, output_dict=True)
+        conf_matrix = confusion_matrix(y_test, y_pred)
+
+        # extract accuracy
         accuracy = report["accuracy"]
         report_df = pd.DataFrame(report).transpose()
         report_df = report_df.drop("accuracy")
         display(report_df)
-        accuracy_df = pd.DataFrame({"accuracy": [accuracy]}).T
+
+        # print accuracy df
+        accuracy_df = pd.DataFrame({"metric": ["accuracy", "Matthews Correlation Coefficient"], "value": [accuracy, mcc]})
         display(accuracy_df)
-        mcc = matthews_corrcoef(y_test, y_pred)
-        mcc_df = pd.DataFrame({"Matthews Correlation Coefficient": [mcc]})
-        display(mcc_df)
-        conf_matrix = confusion_matrix(y_test, y_pred)
+
+        # reformat and print confusion matrix
         conf_matrix_df = pd.DataFrame(
             conf_matrix,
-            index=[f"Actual {i}" for i in range(conf_matrix.shape[0])],
-            columns=[f"Predicted {i}" for i in range(conf_matrix.shape[1])],
+            index=[f"Actual {bool(i)}" for i in range(conf_matrix.shape[0])],
+            columns=[f"Predicted {bool(i)}" for i in range(conf_matrix.shape[1])],
         )
         display(conf_matrix_df)

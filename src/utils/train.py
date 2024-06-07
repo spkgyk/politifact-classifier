@@ -9,11 +9,11 @@ import pandas as pd
 import evaluate
 import os
 
-# TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
+TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
 # TEMPLATE = (
 #     """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}{subjects}"""
 # )
-TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}"'
+# TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}"'
 PROMPT = PromptTemplate(
     input_variables=[
         "speaker_name",
@@ -141,6 +141,9 @@ class ClassificationTrainer:
         display(metrics)
         output_path = os.path.join(self.config["training_arguments"]["output_dir"], self.config["model_name"])
         self.trainer.save_model(output_path)
+
+    # def test(self, df: pd.DataFrame):
+    #     dataset = self._format_data(df)
 
 
 if __name__ == "__main__":
