@@ -162,6 +162,4 @@ cython_debug/
 #.idea/
 
 output/
-true_false_model/
-true_false_model_2/
 src/data/data_ada.csv

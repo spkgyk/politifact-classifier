@@ -3,11 +3,13 @@ from datasets import Dataset, DatasetDict
 from sklearn.preprocessing import LabelEncoder
 from langchain.prompts import PromptTemplate
 from joblib import Parallel, delayed
-from evaluate import load
 from typing import Dict
 import pandas as pd
+import evaluate
+import os
 
-TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
+# TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
+TEMPLATE = """A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}" """
 PROMPT = PromptTemplate(
     input_variables=[
         "speaker_name",
@@ -53,12 +55,12 @@ class ClassificationTrainer:
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
 
-        self.accuracy_metric = load("accuracy", trust_remote_code=True)
-        self.precision_metric = load("precision", trust_remote_code=True)
-        self.recall_metric = load("recall", trust_remote_code=True)
-        self.f1_metric = load("f1", trust_remote_code=True)
-        if config["num_labels"] == 2:
-            self.mcc_metric = load("matthews_correlation", trust_remote_code=True)
+        acc = evaluate.load("accuracy", trust_remote_code=True, average="binary")
+        prec = evaluate.load("precision", trust_remote_code=True, average="binary")
+        rec = evaluate.load("recall", trust_remote_code=True, average="binary")
+        f1 = evaluate.load("f1", trust_remote_code=True)
+        mcc = evaluate.load("matthews_correlation", trust_remote_code=True)
+        self.metrics = evaluate.combine([acc, prec, rec, f1, mcc]) if config["num_labels"] == 2 else evaluate.combine([acc, prec, rec, f1])
 
     def _define_labels(self, df: pd.DataFrame):
         if self.config["num_labels"] == 6:
@@ -110,15 +112,8 @@ class ClassificationTrainer:
     def compute_metrics(self, pred):
         references = pred.label_ids
         predictions = pred.predictions.argmax(-1)
-        accuracy = self.accuracy_metric.compute(predictions=predictions, references=references)
-        precision = self.precision_metric.compute(predictions=predictions, references=references, average="binary")
-        recall = self.recall_metric.compute(predictions=predictions, references=references, average="binary")
-        f1 = self.f1_metric.compute(predictions=predictions, references=references, average="binary")
-        if self.config["num_labels"] == 2:
-            mcc = self.mcc_metric.compute(predictions=predictions, references=references)
-            return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "mcc": mcc}
-        else:
-            return {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1}
+        metrics = self.metrics.compute(predictions=predictions, references=references)
+        return metrics
 
     def train(self, df: pd.DataFrame):
         dataset = self._format_data(df)
@@ -132,9 +127,13 @@ class ClassificationTrainer:
             tokenizer=self.tokenizer,
             compute_metrics=self.compute_metrics,
         )
+        metrics = self.trainer.evaluate()
+        print(metrics)
         self.trainer.train()
-        self.trainer.evaluate()
-        self.trainer.save_model("true_false_model_2")
+        metrics = self.trainer.evaluate()
+        print(metrics)
+        output_path = os.path.join(config["training_arguments"]["output_dir"], self.config["model_name"])
+        self.trainer.save_model(output_path)
 
 
 if __name__ == "__main__":
