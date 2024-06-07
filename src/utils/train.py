@@ -1,7 +1,12 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, TrainingArguments, Trainer
-from datasets import Dataset, DatasetDict
+from transformers import (
+    AutoModelForSequenceClassification,
+    DataCollatorWithPadding,
+    TrainingArguments,
+    AutoTokenizer,
+    Trainer,
+)
 from sklearn.preprocessing import LabelEncoder
-from langchain.prompts import PromptTemplate
+from datasets import Dataset, DatasetDict
 from joblib import Parallel, delayed
 from IPython.display import display
 from typing import Dict
@@ -9,44 +14,7 @@ import pandas as pd
 import evaluate
 import os
 
-TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
-# TEMPLATE = (
-#     """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}{subjects}"""
-# )
-# TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}"'
-PROMPT = PromptTemplate(
-    input_variables=[
-        "speaker_name",
-        "speaker_affiliation",
-        "speaker_job",
-        "speaker_state",
-        "statement",
-        "statement_context",
-        "subjects",
-    ],
-    template=TEMPLATE,
-)
-
-
-def create_prompt(row):
-    speaker_name = f"""the speaker {row["speaker_name"].replace("-", " ")}""" if pd.notna(row["speaker_name"]) else "a speaker"
-    speaker_affiliation = f"{row['speaker_affiliation'].replace('-', ' ')} " if pd.notna(row["speaker_affiliation"]) else ""
-    speaker_job = f"{row['speaker_job']} " if pd.notna(row["speaker_job"]) else ""
-    speaker_state = f"from {row['speaker_state']} state" if pd.notna(row["speaker_state"]) else ""
-    statement_context = f" in the context of {row['statement_context']}" if pd.notna(row["statement_context"]) else ""
-    subjects = ", ".join(s.replace("-", " ") for s in row["subjects"].split("$")) if pd.notna(row["subjects"]) else ""
-    subjects = f" while talking about {subjects}" if subjects else subjects
-    inputs = {
-        "speaker_name": speaker_name,
-        "speaker_affiliation": speaker_affiliation,
-        "speaker_job": speaker_job,
-        "speaker_state": speaker_state,
-        "statement": row["statement"],
-        "statement_context": statement_context,
-        "subjects": subjects,
-    }
-
-    return PROMPT.format(**inputs).lower()
+from .create_prompt import create_prompt
 
 
 class ClassificationTrainer:
@@ -74,7 +42,7 @@ class ClassificationTrainer:
             label_encoder = LabelEncoder()
             df["label"] = label_encoder.fit_transform(df["Label"])
         elif self.config["num_labels"] == 2:
-            df["label"] = df["Label"].apply(lambda x: int("true" in x.lower()))
+            df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true"]))
 
         return df
 
@@ -141,17 +109,3 @@ class ClassificationTrainer:
         display(metrics)
         output_path = os.path.join(self.config["training_arguments"]["output_dir"], self.config["model_name"])
         self.trainer.save_model(output_path)
-
-    # def test(self, df: pd.DataFrame):
-    #     dataset = self._format_data(df)
-
-
-if __name__ == "__main__":
-    from yaml import safe_load
-
-    df = pd.read_csv("data/data.csv")
-    with open("data/config.yaml") as f:
-        config = safe_load(f)
-
-    trainer = ClassificationTrainer(config)
-    trainer.train(df)

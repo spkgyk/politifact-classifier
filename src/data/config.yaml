@@ -2,6 +2,8 @@
 # model_name: google-bert/bert-base-uncased
 model_name: distilbert/distilbert-base-uncased
 num_labels: 2
+inference_batch_size: 64
+inference_model: output/distilbert/distilbert-base-uncased (GOOD)
 training_arguments:
   output_dir: output
   num_train_epochs: 10
