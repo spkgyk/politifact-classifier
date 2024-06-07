@@ -42,7 +42,7 @@ class ClassificationTrainer:
             label_encoder = LabelEncoder()
             df["label"] = label_encoder.fit_transform(df["Label"])
         elif self.config["num_labels"] == 2:
-            df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true"]))
+            df["label"] = df["Label"].apply(lambda x: int("true" in x.lower()))
 
         return df
 
