@@ -25,5 +25,6 @@ dependencies:
     - accelerate
     - transformers
     - scikit-learn
+    - langchain_community
 
 
