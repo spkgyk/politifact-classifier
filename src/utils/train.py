@@ -9,7 +9,11 @@ import pandas as pd
 import evaluate
 import os
 
-TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
+# TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
+# TEMPLATE = (
+#     """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}{subjects}"""
+# )
+TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}"'
 PROMPT = PromptTemplate(
     input_variables=[
         "speaker_name",
@@ -18,6 +22,7 @@ PROMPT = PromptTemplate(
         "speaker_state",
         "statement",
         "statement_context",
+        "subjects",
     ],
     template=TEMPLATE,
 )
@@ -28,8 +33,9 @@ def create_prompt(row):
     speaker_affiliation = f"{row['speaker_affiliation'].replace('-', ' ')} " if pd.notna(row["speaker_affiliation"]) else ""
     speaker_job = f"{row['speaker_job']} " if pd.notna(row["speaker_job"]) else ""
     speaker_state = f"from {row['speaker_state']} state" if pd.notna(row["speaker_state"]) else ""
-    statement_context = f" in the context of {row['statement_context']}." if pd.notna(row["statement_context"]) else ""
-
+    statement_context = f" in the context of {row['statement_context']}" if pd.notna(row["statement_context"]) else ""
+    subjects = ", ".join(s.replace("-", " ") for s in row["subjects"].split("$")) if pd.notna(row["subjects"]) else ""
+    subjects = f" while talking about {subjects}" if subjects else subjects
     inputs = {
         "speaker_name": speaker_name,
         "speaker_affiliation": speaker_affiliation,
@@ -37,6 +43,7 @@ def create_prompt(row):
         "speaker_state": speaker_state,
         "statement": row["statement"],
         "statement_context": statement_context,
+        "subjects": subjects,
     }
 
     return PROMPT.format(**inputs).lower()
@@ -55,10 +62,10 @@ class ClassificationTrainer:
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
 
-        acc = evaluate.load("accuracy", trust_remote_code=True, average="binary")
-        prec = evaluate.load("precision", trust_remote_code=True, average="binary")
-        rec = evaluate.load("recall", trust_remote_code=True, average="binary")
-        f1 = evaluate.load("f1", trust_remote_code=True)
+        acc = evaluate.load("accuracy", trust_remote_code=True, average="weighted")
+        prec = evaluate.load("precision", trust_remote_code=True, average="weighted")
+        rec = evaluate.load("recall", trust_remote_code=True, average="weighted")
+        f1 = evaluate.load("f1", trust_remote_code=True, average="weighted")
         mcc = evaluate.load("matthews_correlation", trust_remote_code=True)
         self.metrics = evaluate.combine([acc, prec, rec, f1, mcc]) if config["num_labels"] == 2 else evaluate.combine([acc, prec, rec, f1])
 
