@@ -1,6 +1,6 @@
 # model_name: FacebookAI/xlm-roberta-large
-model_name: google-bert/bert-base-uncased
-# model_name: distilbert/distilbert-base-uncased
+# model_name: google-bert/bert-base-uncased
+model_name: distilbert/distilbert-base-uncased
 num_labels: 2
 training_arguments:
   output_dir: output

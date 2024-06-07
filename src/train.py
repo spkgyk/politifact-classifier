@@ -3,13 +3,13 @@ from datasets import Dataset, DatasetDict
 from sklearn.preprocessing import LabelEncoder
 from langchain.prompts import PromptTemplate
 from joblib import Parallel, delayed
+from IPython.display import display
 from typing import Dict
 import pandas as pd
 import evaluate
 import os
 
-# TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
-TEMPLATE = """A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}" """
+TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
 PROMPT = PromptTemplate(
     input_variables=[
         "speaker_name",
@@ -127,12 +127,12 @@ class ClassificationTrainer:
             tokenizer=self.tokenizer,
             compute_metrics=self.compute_metrics,
         )
-        metrics = self.trainer.evaluate()
-        print(metrics)
+        metrics = pd.DataFrame([self.trainer.evaluate()])
+        display(metrics)
         self.trainer.train()
-        metrics = self.trainer.evaluate()
-        print(metrics)
-        output_path = os.path.join(config["training_arguments"]["output_dir"], self.config["model_name"])
+        metrics = pd.DataFrame([self.trainer.evaluate()])
+        display(metrics)
+        output_path = os.path.join(self.config["training_arguments"]["output_dir"], self.config["model_name"])
         self.trainer.save_model(output_path)
 
 
