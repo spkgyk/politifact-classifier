@@ -2,11 +2,12 @@ from langchain.prompts import PromptTemplate
 import pandas as pd
 
 
-TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
+# TEMPLATE = """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}"""
 # TEMPLATE = (
 #     """{speaker_name} ({speaker_affiliation}{speaker_job}{speaker_state}) said the statement: "{statement}"{statement_context}{subjects}"""
 # )
-# TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}"'
+TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}"'
+# TEMPLATE = 'A speaker ({speaker_affiliation}{speaker_job}) said the statement: "{statement}". Is it true or false?'
 PROMPT = PromptTemplate(
     input_variables=[
         "speaker_name",

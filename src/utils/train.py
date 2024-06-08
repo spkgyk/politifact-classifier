@@ -14,6 +14,8 @@ import pandas as pd
 import evaluate
 import os
 
+# import torch.nn as nn
+
 from .create_prompt import create_prompt
 
 
@@ -27,6 +29,10 @@ class ClassificationTrainer:
             trust_remote_code=True,
             device_map="cuda",
         )
+        # self.model.classifier = nn.Linear(self.model.classifier.in_features, config["num_labels"])
+        # self.model.num_labels = config["num_labels"]
+        # self.model.config.num_labels = config["num_labels"]
+        # self.model.config.problem_type == "single_label_classification" if config["num_labels"] == 2 else "multi_label_classification"
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
 
