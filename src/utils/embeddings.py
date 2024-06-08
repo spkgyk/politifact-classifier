@@ -37,13 +37,13 @@ async def get_all_embeddings(texts, model="text-embedding-3-small", batch_size=2
 
 
 def apply_async(df, func, model, batch_size):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     embeddings = loop.run_until_complete(func(df.tolist(), model, batch_size))
     return embeddings
 
 
 if __name__ == "__main__":
     raw_data = pd.read_csv("../data/data.csv")
-    batch_size = 2
-    raw_data["ada_embedding"] = apply_async(raw_data["statement"], get_all_embeddings, "text-embedding-3-small", batch_size)
-    raw_data.to_csv("../data/data_ada.csv")
+    batch_size = 50
+    raw_data["statement_embedding"] = apply_async(raw_data["statement"], get_all_embeddings, "text-embedding-3-small", batch_size)
+    raw_data.to_csv("../data/data_ada.csv", index=False)

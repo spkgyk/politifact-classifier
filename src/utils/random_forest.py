@@ -1,13 +1,12 @@
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier, GradientBoostingClassifier
-from sklearn.metrics import classification_report, confusion_matrix, matthews_corrcoef
+from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 from IPython.display import display
-from typing import Dict
+from typing import Dict, List
 import pandas as pd
 import numpy as np
 import pickle
@@ -18,46 +17,52 @@ from .get_metrics import calculate_metrics
 from .preprocess import preprocess_data
 
 
-# Custom transformer to handle ADA embeddings
-class AdaEmbeddingTransformer(BaseEstimator, TransformerMixin):
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        return np.array([embedding[:256] for embedding in X])
+def extract_embeddings(X):
+    return np.vstack(X)
 
 
 class MyModel:
     def __init__(self, config: Dict):
         self.config = config
+
+        pca_pipeline = Pipeline(
+            steps=[
+                ("extract", FunctionTransformer(extract_embeddings, validate=False)),
+                ("pca", PCA(n_components=50)),
+            ]
+        )
+
         self.preprocessor = ColumnTransformer(
             transformers=[
-                ("tfidf_statement", TfidfVectorizer(stop_words="english"), "statement"),
-                ("tfidf_statement_context", TfidfVectorizer(stop_words="english"), "statement_context"),
+                # ("tfidf_statement", TfidfVectorizer(stop_words="english"), "statement"),
+                # ("tfidf_statement_context", TfidfVectorizer(stop_words="english"), "statement_context"),
                 ("onehot", OneHotEncoder(handle_unknown="ignore"), ["speaker_name", "speaker_state", "speaker_affiliation"]),
-                # ("ada", AdaEmbeddingTransformer(), "ada_embedding"),
-            ]
+                ("pca", pca_pipeline, "statement_embedding"),
+            ],
+            remainder="passthrough",
         )
         self.model = Pipeline(
             steps=[
                 ("preprocessor", self.preprocessor),
                 (
                     "classifier",
-                    RandomForestClassifier(),
-                    # VotingClassifier(
-                    #     estimators=[("rf", RandomForestClassifier()), ("gb", GradientBoostingClassifier())],
-                    #     voting="soft",
-                    # ),
+                    # RandomForestClassifier(),
+                    VotingClassifier(
+                        estimators=[("rf", RandomForestClassifier()), ("gb", GradientBoostingClassifier())],
+                        voting="soft",
+                    ),
                 ),
             ]
         )
 
-    def train(self, df: pd.DataFrame):
+    def _format_data(self, df: pd.DataFrame):
         df = preprocess_data(df)
-        X = df.drop(columns=["Label", "subjects", "speaker_job"])
-        y = df["label"]
-        # X["ada_embedding"] = X["ada_embedding"].apply(eval)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        data_x = df.drop(columns=["Label", "subjects", "speaker_job", "statement", "statement_context"])
+        data_y = df["label"]
+        return train_test_split(data_x, data_y, test_size=0.2, random_state=42)
+
+    def train(self, df: pd.DataFrame):
+        X_train, X_test, y_train, y_test = self._format_data(df)
 
         self.model.fit(X_train, y_train)
 
@@ -67,9 +72,8 @@ class MyModel:
             pickle.dump(self.model, f)
 
         # Calculate metrics
-        metrics_dict, conf_matrix_df, report_df, accuracy_df = calculate_metrics(y_test, y_pred)
+        metrics_dict, conf_matrix_df, report_df = calculate_metrics(y_test, y_pred)
 
-        display(metrics_dict)
-        display(conf_matrix_df)
+        display(pd.DataFrame.from_dict([metrics_dict]))
         display(report_df)
-        display(accuracy_df)
+        display(conf_matrix_df)

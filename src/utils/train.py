@@ -6,13 +6,11 @@ from transformers import (
     Trainer,
 )
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 from datasets import Dataset, DatasetDict
 from joblib import Parallel, delayed
 from IPython.display import display
 from typing import Dict
 import pandas as pd
-import evaluate
 import os
 
 # import torch.nn as nn
@@ -51,6 +49,7 @@ class ClassificationTrainer:
         dataset = DatasetDict()
         dataset["train"] = Dataset.from_pandas(train_df)
         dataset["validation"] = Dataset.from_pandas(validate_df)
+        dataset = dataset.map(self.tokenize, batched=True)
         return dataset
 
     def tokenize(self, entry):
@@ -59,14 +58,11 @@ class ClassificationTrainer:
     def compute_metrics(self, pred):
         references = pred.label_ids
         predictions = pred.predictions.argmax(-1)
-        self.metrics_dict, self.conf_matrix_df, self.report_df, self.accuracy_df = calculate_metrics(
-            predictions=predictions, references=references
-        )
+        self.metrics_dict, self.conf_matrix_df, self.report_df = calculate_metrics(predictions=predictions, references=references)
         return self.metrics_dict
 
     def train(self, df: pd.DataFrame):
         dataset = self._format_data(df)
-        dataset = dataset.map(self.tokenize, batched=True)
         self.trainer = Trainer(
             model=self.model,
             args=self.training_arguments,
@@ -78,18 +74,16 @@ class ClassificationTrainer:
         )
         # get untrained metrics
         self.trainer.evaluate()
-        display(self.metrics_dict)
-        display(self.conf_matrix_df)
+        display(pd.DataFrame.from_dict([self.metrics_dict]))
         display(self.report_df)
-        display(self.accuracy_df)
+        display(self.conf_matrix_df)
 
         self.trainer.train()
 
         # get trained metrics of best model
         self.trainer.evaluate()
-        display(self.metrics_dict)
-        display(self.conf_matrix_df)
+        display(pd.DataFrame.from_dict([self.metrics_dict]))
         display(self.report_df)
-        display(self.accuracy_df)
+        display(self.conf_matrix_df)
         output_path = os.path.join(self.config["training_arguments"]["output_dir"], self.config["model_name"])
         self.trainer.save_model(output_path)
