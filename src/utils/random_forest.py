@@ -7,8 +7,11 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from IPython.display import display
+from typing import Dict
 import pandas as pd
 import numpy as np
+import pickle
+import os
 
 
 # Custom transformer to split subjects
@@ -38,7 +41,8 @@ class AdaEmbeddingTransformer(BaseEstimator, TransformerMixin):
 
 
 class MyModel:
-    def __init__(self):
+    def __init__(self, config: Dict):
+        self.config = config
         self.text_transformer = Pipeline(steps=[("tfidf", TfidfVectorizer(stop_words="english"))])
         self.subject_transformer = Pipeline(steps=[("splitter", SubjectSplitter())])
         self.categorical_features = ["speaker_name", "speaker_job", "speaker_state", "speaker_affiliation", "statement_context"]
@@ -95,3 +99,6 @@ class MyModel:
             columns=[f"Predicted {bool(i)}" for i in range(conf_matrix.shape[1])],
         )
         display(conf_matrix_df)
+
+        with open(os.path.join(self.config["training_arguments"]["output_dir"], "random_forest.pkl"), "wb") as f:
+            pickle.dump(self.model, f)
