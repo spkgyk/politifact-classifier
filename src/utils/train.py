@@ -1,20 +1,16 @@
 from transformers import (
     AutoModelForSequenceClassification,
     DataCollatorWithPadding,
+    EarlyStoppingCallback,
     TrainingArguments,
     AutoTokenizer,
     Trainer,
 )
-from sklearn.model_selection import train_test_split
-from transformers import EarlyStoppingCallback
 from datasets import Dataset, DatasetDict
-from joblib import Parallel, delayed
 from IPython.display import display
 from typing import Dict
 import pandas as pd
 import os
-
-# import torch.nn as nn
 
 from .get_metrics import calculate_metrics
 from .preprocess import preprocess_data
@@ -30,34 +26,33 @@ class ClassificationTrainer:
             trust_remote_code=True,
             device_map="cuda",
         )
-        # self.model.classifier = nn.Linear(self.model.classifier.in_features, config["num_labels"])
-        # self.model.num_labels = config["num_labels"]
-        # self.model.config.num_labels = config["num_labels"]
-        # self.model.config.problem_type == "single_label_classification" if config["num_labels"] == 2 else "multi_label_classification"
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
 
-    def _format_data(self, df: pd.DataFrame):
-        # get numerical values for class labels
+    def _format_data(self, df: pd.DataFrame) -> DatasetDict:
         train_df, validate_df = preprocess_data(df)
-
-        # Convert to HF dataset
-        dataset = DatasetDict()
-        dataset["train"] = Dataset.from_pandas(train_df[["prompt", "label"]])
-        dataset["validation"] = Dataset.from_pandas(validate_df[["prompt", "label"]])
+        dataset = DatasetDict(
+            {
+                "train": Dataset.from_pandas(train_df[["prompt", "label"]]),
+                "validation": Dataset.from_pandas(validate_df[["prompt", "label"]]),
+            }
+        )
         dataset = dataset.map(self.tokenize, batched=True)
         return dataset
 
-    def tokenize(self, entry):
-        return self.tokenizer(entry["prompt"])
+    def tokenize(self, entry: Dict) -> Dict:
+        return self.tokenizer(entry["prompt"], truncation=True, padding=True)
 
-    def compute_metrics(self, pred):
+    def compute_metrics(self, pred) -> Dict:
         references = pred.label_ids
         predictions = pred.predictions.argmax(-1)
-        self.metrics_dict, self.conf_matrix_df, self.report_df = calculate_metrics(predictions=predictions, references=references)
-        return self.metrics_dict
+        metrics_dict, conf_matrix_df, report_df = calculate_metrics(predictions, references)
+        self.metrics_dict = metrics_dict
+        self.conf_matrix_df = conf_matrix_df
+        self.report_df = report_df
+        return metrics_dict
 
-    def train(self, df: pd.DataFrame):
+    def train(self, df: pd.DataFrame) -> None:
         dataset = self._format_data(df)
         self.trainer = Trainer(
             model=self.model,
@@ -69,18 +64,20 @@ class ClassificationTrainer:
             compute_metrics=self.compute_metrics,
             callbacks=[EarlyStoppingCallback(3)],
         )
-        # get untrained metrics
-        self.trainer.evaluate()
-        display(pd.DataFrame.from_dict([self.metrics_dict]))
-        display(self.report_df)
-        display(self.conf_matrix_df)
+
+        self._evaluate_and_display()
 
         self.trainer.train()
 
-        # get trained metrics of best model
+        self._evaluate_and_display()
+        self._save_model()
+
+    def _evaluate_and_display(self) -> None:
         self.trainer.evaluate()
         display(pd.DataFrame.from_dict([self.metrics_dict]))
         display(self.report_df)
         display(self.conf_matrix_df)
+
+    def _save_model(self) -> None:
         output_path = os.path.join(self.config["training_arguments"]["output_dir"], self.config["model_name"])
         self.trainer.save_model(output_path)

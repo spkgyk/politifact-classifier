@@ -26,16 +26,19 @@ class ClassificationTester:
             self.random_forest: Pipeline = pickle.load(f)
         self.ollama = Ollama(model="llama3")
 
-    def test_rf(self, json: Dict) -> bool:
-        input_df = pd.DataFrame([json])
-        if "statement_embedding" in input_df.columns and type(input_df["statement_embedding"]) != list:
-            input_df["statement_embedding"] = eval(input_df["statement_embedding"])
-        return self.random_forest.predict(input_df)[0].astype(bool)
-
-    def test_df_rf(self, df: pd.DataFrame):
+    def _evaluate_statement_embedding(self, df: pd.DataFrame) -> pd.DataFrame:
         if "statement_embedding" in df.columns and type(df["statement_embedding"].iloc[0]) != list:
             df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
             df = pd.DataFrame(df)
+        return df
+
+    def test_rf(self, json: Dict) -> bool:
+        input_df = pd.DataFrame([json])
+        input_df = self._evaluate_statement_embedding(input_df)
+        return self.random_forest.predict(input_df)[0].astype(bool)
+
+    def test_df_rf(self, df: pd.DataFrame):
+        df = self._evaluate_statement_embedding(df)
         return self.random_forest.predict(df).astype(bool)
 
     def test_bert(self, json: Dict) -> bool:
@@ -54,39 +57,30 @@ class ClassificationTester:
 
         return results
 
-    def test_ensemble(self, json: Dict):
-        # Prepare the input data for the sklearn model
-        input_df = pd.DataFrame([json])
-        if "statement_embedding" in input_df.columns and type(input_df["statement_embedding"]) != list:
-            input_df["statement_embedding"] = eval(input_df["statement_embedding"])
-        sklearn_pred_proba = self.random_forest.predict_proba(input_df)[0]
-
-        # Get prediction from the BERT model
-        bert_result = self.classifier(create_prompt(json))[0]
+    def _get_ensemble_proba(self, sklearn_pred_proba, bert_result):
         bert_pred_proba = bert_result["score"]
-
-        # If BERT model has two classes, convert the score to a probability array
         if bert_result["label"] == "LABEL_0":
             bert_pred_proba = [bert_pred_proba, 1 - bert_pred_proba]
         else:
             bert_pred_proba = [1 - bert_pred_proba, bert_pred_proba]
 
-        # Combine the probabilities (using averaging)
         ensemble_proba = np.mean([sklearn_pred_proba, bert_pred_proba], axis=0)
+        final_pred = bool(np.argmax(ensemble_proba))
 
-        # Get the final prediction
-        final_pred = np.argmax(ensemble_proba)
+        return final_pred
 
-        return bool(final_pred), ensemble_proba
+    def test_ensemble(self, json: Dict):
+        input_df = pd.DataFrame([json])
+        input_df = self._evaluate_statement_embedding(input_df)
+        sklearn_pred_proba = self.random_forest.predict_proba(input_df)[0]
+        bert_result = self.classifier(create_prompt(json))[0]
+        final_pred = self._get_ensemble_proba(sklearn_pred_proba, bert_result)
+        return final_pred
 
     def test_df_ensemble(self, df: pd.DataFrame):
         df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
         data = KeyDataset(Dataset.from_pandas(df), key="prompt")
-
-        if "statement_embedding" in df.columns and type(df["statement_embedding"].iloc[0]) != list:
-            df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
-            df = pd.DataFrame(df)
-
+        df = self._evaluate_statement_embedding(df)
         bs = self.config["inference_batch_size"]
 
         sklearn_pred_proba = self.random_forest.predict_proba(df)
@@ -94,16 +88,8 @@ class ClassificationTester:
         results = []
         pbar = tqdm(zip(self.classifier(data, batch_size=bs), sklearn_pred_proba), total=len(data))
         for bert_result, sk_result in pbar:
-            bert_pred_proba = bert_result["score"]
-            if bert_result["label"] == "LABEL_0":
-                bert_pred_proba = [bert_pred_proba, 1 - bert_pred_proba]
-            else:
-                bert_pred_proba = [1 - bert_pred_proba, bert_pred_proba]
-
-            ensemble_proba = np.mean([sk_result, bert_pred_proba], axis=0)
-            final_pred = np.argmax(ensemble_proba)
-
-            results.append(bool(final_pred))
+            final_pred = self._get_ensemble_proba(sk_result, bert_result)
+            results.append(final_pred)
 
         return results
 

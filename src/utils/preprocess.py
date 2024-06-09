@@ -18,27 +18,20 @@ STATE_MAPPING = {
 
 
 def standardize_state(state: str):
-    if pd.isnull(state):
-        return state
-    return STATE_MAPPING.get(state, state)
+    return STATE_MAPPING.get(state, state) if pd.notnull(state) else state
 
 
 def process_subjects(df: pd.DataFrame, print_out=False):
-    unique_subjects = set()
-    for subjects in df["subjects"]:
-        for subject in subjects.split("$"):
-            unique_subjects.add(subject)
+    unique_subjects = set(subject for subjects in df["subjects"] for subject in subjects.split("$"))
 
-    subjects_data = {}
     if print_out:
         print("[")
-    for subject in sorted(list(unique_subjects)):
-        column = df["subjects"].apply(lambda x: int(subject in x))
-        subjects_data["subject-" + subject] = column
-        if print_out:
+        for subject in sorted(unique_subjects):
+            column = df["subjects"].apply(lambda x: int(subject in x))
             print(f'"{subject}" ({sum(column)}),')
-    if print_out:
         print("]")
+
+    subjects_data = {f"subject-{subject}": df["subjects"].apply(lambda x: int(subject in x)) for subject in sorted(unique_subjects)}
 
     subjects_df = pd.DataFrame(subjects_data)
     df = pd.concat([df, subjects_df], axis="columns")

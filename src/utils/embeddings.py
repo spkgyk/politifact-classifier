@@ -11,29 +11,29 @@ async def fetch_embeddings(session, texts, batch_id, model="text-embedding-3-sma
     api_url = "https://api.openai.com/v1/embeddings"
     headers = {"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"}
     data = {"input": texts, "model": model}
+
     async with session.post(api_url, headers=headers, json=data) as response:
         response_data = await response.json()
-        return {batch_id: [item["embedding"] for item in response_data["data"]]}
+        embeddings = [item["embedding"] for item in response_data["data"]]
+        return {batch_id: embeddings}
 
 
 async def get_all_embeddings(texts, model="text-embedding-3-small", batch_size=20):
     async with aiohttp.ClientSession() as session:
-        tasks = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
-            tasks.append(fetch_embeddings(session, batch, i, model))
+        tasks = [
+            fetch_embeddings(session, texts[batch_id : batch_id + batch_size], batch_id, model)
+            for batch_id in range(0, len(texts), batch_size)
+        ]
 
         embeddings = {}
         for task in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
-            embeddings_batch = await task
-            embeddings.update(embeddings_batch)
+            batch_embeddings = await task
+            embeddings.update(batch_embeddings)
 
-        # Sort embeddings by batch index and flatten the list
-        sorted_embeddings = []
-        for i in sorted(embeddings.keys()):
-            sorted_embeddings.extend(embeddings[i])
+        sorted_embeddings = [embeddings[i] for i in sorted(embeddings.keys())]
+        flattened_embeddings = [embedding for batch in sorted_embeddings for embedding in batch]
 
-        return sorted_embeddings
+        return flattened_embeddings
 
 
 def apply_async(df, func, model, batch_size):
@@ -45,5 +45,7 @@ def apply_async(df, func, model, batch_size):
 if __name__ == "__main__":
     raw_data = pd.read_csv("../data/data.csv")
     batch_size = 50
+
     raw_data["statement_embedding"] = apply_async(raw_data["statement"], get_all_embeddings, "text-embedding-3-small", batch_size)
+
     raw_data.to_csv("../data/data_ada.csv", index=False)
