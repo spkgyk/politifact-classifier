@@ -6,6 +6,7 @@ from transformers import (
     Trainer,
 )
 from sklearn.model_selection import train_test_split
+from transformers import EarlyStoppingCallback
 from datasets import Dataset, DatasetDict
 from joblib import Parallel, delayed
 from IPython.display import display
@@ -66,6 +67,7 @@ class ClassificationTrainer:
             eval_dataset=dataset["validation"],
             tokenizer=self.tokenizer,
             compute_metrics=self.compute_metrics,
+            callbacks=[EarlyStoppingCallback(3)],
         )
         # get untrained metrics
         self.trainer.evaluate()
