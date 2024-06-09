@@ -28,9 +28,14 @@ class ClassificationTester:
 
     def test_rf(self, json: Dict) -> bool:
         input_df = pd.DataFrame([json])
+        if "statement_embedding" in input_df.columns and type(input_df["statement_embedding"]) != list:
+            input_df["statement_embedding"] = eval(input_df["statement_embedding"])
         return self.random_forest.predict(input_df)[0].astype(bool)
 
     def test_df_rf(self, df: pd.DataFrame):
+        if "statement_embedding" in df.columns and type(df["statement_embedding"].iloc[0]) != list:
+            df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
+            df = pd.DataFrame(df)
         return self.random_forest.predict(df).astype(bool)
 
     def test_bert(self, json: Dict) -> bool:
@@ -52,6 +57,8 @@ class ClassificationTester:
     def test_ensemble(self, json: Dict):
         # Prepare the input data for the sklearn model
         input_df = pd.DataFrame([json])
+        if "statement_embedding" in input_df.columns and type(input_df["statement_embedding"]) != list:
+            input_df["statement_embedding"] = eval(input_df["statement_embedding"])
         sklearn_pred_proba = self.random_forest.predict_proba(input_df)[0]
 
         # Get prediction from the BERT model
@@ -75,6 +82,11 @@ class ClassificationTester:
     def test_df_ensemble(self, df: pd.DataFrame):
         df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
         data = KeyDataset(Dataset.from_pandas(df), key="prompt")
+
+        if "statement_embedding" in df.columns and type(df["statement_embedding"].iloc[0]) != list:
+            df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
+            df = pd.DataFrame(df)
+
         bs = self.config["inference_batch_size"]
 
         sklearn_pred_proba = self.random_forest.predict_proba(df)

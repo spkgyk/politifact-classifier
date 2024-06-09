@@ -23,11 +23,15 @@ def process_subjects(df):
     unique_subjects = set()
     for subjects in df["subjects"]:
         for subject in subjects.split("$"):
-            unique_subjects.add("subject-" + subject)
+            unique_subjects.add(subject)
 
     subjects_data = {}
+    # print("[")
     for subject in sorted(list(unique_subjects)):
-        subjects_data[subject] = df["subjects"].apply(lambda x: int(subject in x))
+        column = df["subjects"].apply(lambda x: int(subject in x))
+        # print(f'"{subject}" ({sum(column)}),')
+        subjects_data["subject-" + subject] = column
+    # print("]")
 
     subjects_df = pd.DataFrame(subjects_data)
 
@@ -40,6 +44,7 @@ def process_subjects(df):
 def preprocess_data(df: pd.DataFrame):
     df = df.map(lambda x: x.lower().replace('"', "").strip() if isinstance(x, str) else x)
     df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true"]))
+    df = df.drop(columns=["Label"])
     df["speaker_state"] = df["speaker_state"].map(standardize_state)
     df = process_subjects(df)
     df["statement_context"] = df["statement_context"].fillna("")
