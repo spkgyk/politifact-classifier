@@ -16,7 +16,6 @@ import os
 # import torch.nn as nn
 
 from .get_metrics import calculate_metrics
-from .create_prompt import create_prompt
 from .preprocess import preprocess_data
 
 
@@ -39,16 +38,12 @@ class ClassificationTrainer:
 
     def _format_data(self, df: pd.DataFrame):
         # get numerical values for class labels
-        df = preprocess_data(df)
-        df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
-
-        df = pd.DataFrame(df[["prompt", "label"]])
-        train_df, validate_df = train_test_split(df, test_size=0.2, random_state=42)
+        train_df, validate_df = preprocess_data(df)
 
         # Convert to HF dataset
         dataset = DatasetDict()
-        dataset["train"] = Dataset.from_pandas(train_df)
-        dataset["validation"] = Dataset.from_pandas(validate_df)
+        dataset["train"] = Dataset.from_pandas(train_df[["prompt", "label"]])
+        dataset["validation"] = Dataset.from_pandas(validate_df[["prompt", "label"]])
         dataset = dataset.map(self.tokenize, batched=True)
         return dataset
 

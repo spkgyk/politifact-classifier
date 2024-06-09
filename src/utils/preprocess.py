@@ -1,5 +1,9 @@
+from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
+from typing import Tuple
 import pandas as pd
+
+from utils.create_prompt import create_prompt
 
 STATE_MAPPING = {
     "tex": "texas",
@@ -41,17 +45,19 @@ def process_subjects(df):
     return df
 
 
-def preprocess_data(df: pd.DataFrame):
+def preprocess_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     df = df.map(lambda x: x.lower().replace('"', "").strip() if isinstance(x, str) else x)
-    df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true"]))
+    df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true", "half-true"]))
     df = df.drop(columns=["Label"])
     df["speaker_state"] = df["speaker_state"].map(standardize_state)
     df = process_subjects(df)
     df["statement_context"] = df["statement_context"].fillna("")
 
+    df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
+
     if "statement_embedding" in df.columns:
         df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
 
-    df = pd.DataFrame(df)
+    train_df, validate_df = train_test_split(df, test_size=0.2, random_state=42)
 
-    return df
+    return train_df, validate_df

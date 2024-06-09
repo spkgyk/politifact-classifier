@@ -1,7 +1,6 @@
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier, GradientBoostingClassifier
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
@@ -56,22 +55,20 @@ class MyModel:
         )
 
     def _format_data(self, df: pd.DataFrame):
-        df = preprocess_data(df)
-        data_x = df.drop(
-            columns=[
-                "label",
-                "statement",
-                "subjects",
-                "speaker_name",
-                "speaker_job",
-                "speaker_state",
-                # "speaker_affiliation",
-                "statement_context",
-            ]
-            + [c for c in df.columns if "subject" in c]
+        train_df, validate_df = preprocess_data(df)
+        X_train = train_df.drop(
+            columns=["label", "statement", "subjects", "speaker_name", "speaker_job", "speaker_state", "statement_context", "prompt"]
+            + [c for c in train_df.columns if "subject" in c]
         )
-        data_y = df["label"]
-        return train_test_split(data_x, data_y, test_size=0.2, random_state=42)
+        y_train = train_df["label"]
+
+        X_test = validate_df.drop(
+            columns=["label", "statement", "subjects", "speaker_name", "speaker_job", "speaker_state", "statement_context", "prompt"]
+            + [c for c in validate_df.columns if "subject" in c]
+        )
+        y_test = validate_df["label"]
+
+        return X_train, X_test, y_train, y_test
 
     def train(self, df: pd.DataFrame):
         X_train, X_test, y_train, y_test = self._format_data(df)
@@ -84,7 +81,7 @@ class MyModel:
             pickle.dump(self.model, f)
 
         # Calculate metrics
-        metrics_dict, conf_matrix_df, report_df = calculate_metrics(y_test, y_pred)
+        metrics_dict, conf_matrix_df, report_df = calculate_metrics(predictions=y_pred, references=y_test)
 
         display(pd.DataFrame.from_dict([metrics_dict]))
         display(report_df)
