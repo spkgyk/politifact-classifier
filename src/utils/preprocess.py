@@ -47,7 +47,7 @@ def process_subjects(df):
 
 def preprocess_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     df = df.map(lambda x: x.lower().replace('"', "").strip() if isinstance(x, str) else x)
-    df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true", "half-true"]))
+    df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true"]))
     df = df.drop(columns=["Label"])
     df["speaker_state"] = df["speaker_state"].map(standardize_state)
     df = process_subjects(df)
