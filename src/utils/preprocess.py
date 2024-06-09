@@ -17,31 +17,31 @@ STATE_MAPPING = {
 }
 
 
-def standardize_state(state):
+def standardize_state(state: str):
     if pd.isnull(state):
         return state
     return STATE_MAPPING.get(state, state)
 
 
-def process_subjects(df):
+def process_subjects(df: pd.DataFrame, print_out=False):
     unique_subjects = set()
     for subjects in df["subjects"]:
         for subject in subjects.split("$"):
             unique_subjects.add(subject)
 
     subjects_data = {}
-    # print("[")
+    if print_out:
+        print("[")
     for subject in sorted(list(unique_subjects)):
         column = df["subjects"].apply(lambda x: int(subject in x))
-        # print(f'"{subject}" ({sum(column)}),')
         subjects_data["subject-" + subject] = column
-    # print("]")
+        if print_out:
+            print(f'"{subject}" ({sum(column)}),')
+    if print_out:
+        print("]")
 
     subjects_df = pd.DataFrame(subjects_data)
-
-    # Step 3: Concatenate the new columns with the original DataFrame
     df = pd.concat([df, subjects_df], axis="columns")
-
     return df
 
 
@@ -58,6 +58,6 @@ def preprocess_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if "statement_embedding" in df.columns:
         df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
 
-    train_df, validate_df = train_test_split(df, test_size=0.2, random_state=42)
+    train_df, validate_df = train_test_split(df, test_size=0.2, random_state=540)
 
     return train_df, validate_df
