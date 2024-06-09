@@ -13,6 +13,11 @@ def calculate_metrics(predictions, references):
     report_df = pd.DataFrame(report).transpose()
     report_df = report_df.drop("accuracy")
 
+    macro_avg = report_df.loc["macro avg"]
+    precision = macro_avg["precision"]
+    recall = macro_avg["recall"]
+    f1_score = macro_avg["f1-score"]
+
     # reformat and print confusion matrix
     conf_matrix_df = pd.DataFrame(
         conf_matrix,
@@ -20,4 +25,6 @@ def calculate_metrics(predictions, references):
         columns=[f"Predicted {bool(i)}" for i in range(conf_matrix.shape[1])],
     )
 
-    return {"accuracy": acc, "matthews_correlation": mcc}, conf_matrix_df, report_df
+    training_metrics = {"accuracy": acc, "matthews_correlation": mcc, "precision": precision, "recall": recall, "f1-score": f1_score}
+
+    return training_metrics, conf_matrix_df, report_df
