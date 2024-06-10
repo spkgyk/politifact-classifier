@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import pickle
 
-from .create_prompt import create_prompt
+from ..data import create_prompt
 
 
 LLAMA_TASK = "Flip the following statement from {old_truth_value} to {new_truth_value}: {statement}. Return only the flipped statement."

@@ -25,7 +25,7 @@ def extract_embeddings(X):
     return np.vstack(X)
 
 
-class MyModel:
+class PolitifactClassifierRF:
     def __init__(self, config: Dict):
         self.config = config
         self.preprocessor = self._create_preprocessor()

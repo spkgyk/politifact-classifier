@@ -3,10 +3,10 @@
 model_name: distilbert/distilbert-base-uncased
 num_labels: 2
 inference_batch_size: 64
-inference_model: output/distilbert/distilbert-base-uncased (GOOD)
-inference_rf_model: output/random_forest (GOOD).pkl
+inference_model: models/distilbert/distilbert-base-uncased (GOOD)
+inference_rf_model: models/random_forest (GOOD).pkl
 training_arguments:
-  output_dir: output
+  output_dir: models
   num_train_epochs: 10
   learning_rate: 0.00001
   warmup_steps: 600

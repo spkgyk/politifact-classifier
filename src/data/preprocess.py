@@ -3,7 +3,7 @@ from joblib import Parallel, delayed
 from typing import Tuple
 import pandas as pd
 
-from utils.create_prompt import create_prompt
+from .prompts import create_prompt
 
 STATE_MAPPING = {
     "tex": "texas",

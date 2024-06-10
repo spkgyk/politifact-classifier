@@ -16,7 +16,7 @@ from .get_metrics import calculate_metrics
 from .preprocess import preprocess_data
 
 
-class ClassificationTrainer:
+class PolitifactClassifierHF:
     def __init__(self, config: Dict) -> None:
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(config["model_name"], trust_remote_code=True)

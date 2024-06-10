@@ -25,7 +25,7 @@ fi
 
 # Set variables
 ENV_NAME="SentenceClassification"
-REQUIREMENTS_FILE="src/setup/requirements.yaml"
+REQUIREMENTS_FILE="setup/requirements.yaml"
 
 log_info "Activating base conda environment..."
 conda activate base || log_error "Failed to activate base conda environment."
