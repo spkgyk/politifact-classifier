@@ -5,16 +5,35 @@ from sklearn.pipeline import Pipeline
 from joblib import Parallel, delayed
 from transformers import pipeline
 from typing import Dict, Iterator
+from transformers import logging
 from datasets import Dataset
 from tqdm.auto import tqdm
 import pandas as pd
 import numpy as np
+import warnings
 import pickle
+import os
 
 from ..data import create_prompt
 
+warnings.filterwarnings("ignore", message="You seem to be using the pipelines sequentially on GPU")
+logging.set_verbosity_error()
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-LLAMA_TASK = "Flip the following statement from {old_truth_value} to {new_truth_value}: {statement}. Return only the flipped statement."
+
+LLAMA_TASK = """
+Suppose that the following statement is "{old_truth_value}". Flip the statement to "{new_truth_value}".
+Return ONLY the flipped statement, with no additional comments or formatting.
+
+Examples:
+Statement 1: Sarah Palin was repeating Abraham Lincoln's words in discussing the war in Iraq.
+Flipped: Sarah Palin was not repeating Abraham Lincoln's words in discussing the war in Iraq.
+Statement 2: Earmarked dollars have doubled just since 2000, and more than tripled in the last 10 years.
+Flipped: Earmarked dollars have not doubled since 2000, and less than tripled in the last 10 years.
+
+Statement: {statement}
+Flipped:
+"""
 LLAMA_TASK = PromptTemplate(input_variables=["old_truth_value", "new_truth_value", "statement"], template=LLAMA_TASK)
 
 
@@ -46,13 +65,14 @@ class ClassificationTester:
         return output["label"] == "LABEL_1"
 
     def test_df_bert(self, df: pd.DataFrame):
-        df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
-        data = KeyDataset(Dataset.from_pandas(df), key="prompt")
+        data = Dataset.from_pandas(df)
+        data = data.map(lambda example: {"prompt": create_prompt(example)})
+        data = KeyDataset(data, key="prompt")
+
         bs = self.config["inference_batch_size"]
 
         results = []
-        pbar = tqdm(self.classifier(data, batch_size=bs), total=len(data))
-        for result in pbar:
+        for result in tqdm(self.classifier(data, batch_size=bs), total=len(data)):
             results.append(result["label"] == "LABEL_1")
 
         return results
@@ -78,16 +98,17 @@ class ClassificationTester:
         return final_pred
 
     def test_df_ensemble(self, df: pd.DataFrame):
-        df["prompt"] = Parallel(n_jobs=-1)(delayed(create_prompt)(row) for _, row in df.iterrows())
-        data = KeyDataset(Dataset.from_pandas(df), key="prompt")
         df = self._evaluate_statement_embedding(df)
-        bs = self.config["inference_batch_size"]
-
         sklearn_pred_proba = self.random_forest.predict_proba(df)
 
+        data = Dataset.from_pandas(df)
+        data = data.map(lambda example: {"prompt": create_prompt(example)})
+        data = KeyDataset(data, key="prompt")
+
+        bs = self.config["inference_batch_size"]
+
         results = []
-        pbar = tqdm(zip(self.classifier(data, batch_size=bs), sklearn_pred_proba), total=len(data))
-        for bert_result, sk_result in pbar:
+        for bert_result, sk_result in tqdm(zip(self.classifier(data, batch_size=bs), sklearn_pred_proba), total=len(data)):
             final_pred = self._get_ensemble_proba(sk_result, bert_result)
             results.append(final_pred)
 
