@@ -4,9 +4,9 @@ from langchain.prompts import PromptTemplate
 from sklearn.pipeline import Pipeline
 from joblib import Parallel, delayed
 from transformers import pipeline
+from typing import Dict, Iterator
 from datasets import Dataset
 from tqdm.auto import tqdm
-from typing import Dict
 import pandas as pd
 import numpy as np
 import pickle
@@ -93,8 +93,9 @@ class ClassificationTester:
 
         return results
 
-    def flip(self, json: Dict) -> str:
+    def flip(self, json: Dict) -> Iterator[str]:
         truth_value = self.test_bert(json)
         input = {"old_truth_value": truth_value, "new_truth_value": not truth_value, "statement": json["statement"]}
-        response = self.ollama.invoke(LLAMA_TASK.format(**input))
-        return response
+        response = self.ollama.stream(LLAMA_TASK.format(**input))
+        for s in response:
+            yield s
