@@ -43,7 +43,7 @@ def apply_async(df, func, model, batch_size):
 
 
 if __name__ == "__main__":
-    raw_data = pd.read_csv("../data/data.csv")
+    raw_data = pd.read_csv("../../data/data.csv")
     batch_size = 50
 
     raw_data["statement_embedding"] = apply_async(raw_data["statement"], get_all_embeddings, "text-embedding-3-small", batch_size)
