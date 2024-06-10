@@ -14,17 +14,17 @@ import os
 
 from .get_metrics import calculate_metrics
 from .preprocess import preprocess_data
+from .model import CustomModel
 
 
 class ClassificationTrainer:
     def __init__(self, config: Dict) -> None:
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(config["model_name"], trust_remote_code=True)
-        self.model = AutoModelForSequenceClassification.from_pretrained(
+        self.model = CustomModel(
             config["model_name"],
+            num_extra_dims=2967,
             num_labels=config["num_labels"],
-            trust_remote_code=True,
-            device_map="cuda",
         )
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
@@ -33,17 +33,19 @@ class ClassificationTrainer:
         train_df, validate_df = preprocess_data(df)
         dataset = DatasetDict(
             {
-                "train": Dataset.from_pandas(train_df[["prompt", "label"]]),
-                "validation": Dataset.from_pandas(validate_df[["prompt", "label"]]),
+                "train": Dataset.from_pandas(train_df[["prompt", "label", "extra_data"]]),
+                "validation": Dataset.from_pandas(validate_df[["prompt", "label", "extra_data"]]),
             }
         )
-        dataset = dataset.map(self.tokenize, batched=True)
+        dataset = dataset.map(self._tokenize, batched=True)
         return dataset
 
-    def tokenize(self, entry: Dict) -> Dict:
-        return self.tokenizer(entry["prompt"], truncation=True, padding=True)
+    def _tokenize(self, entry: Dict) -> Dict:
+        tokenized_inputs = self.tokenizer(entry["prompt"])
+        tokenized_inputs["extra_data"] = entry["extra_data"]
+        return tokenized_inputs
 
-    def compute_metrics(self, pred) -> Dict:
+    def _compute_metrics(self, pred) -> Dict:
         references = pred.label_ids
         predictions = pred.predictions.argmax(-1)
         metrics_dict, conf_matrix_df, report_df = calculate_metrics(predictions, references)
@@ -61,7 +63,7 @@ class ClassificationTrainer:
             train_dataset=dataset["train"],
             eval_dataset=dataset["validation"],
             tokenizer=self.tokenizer,
-            compute_metrics=self.compute_metrics,
+            compute_metrics=self._compute_metrics,
             callbacks=[EarlyStoppingCallback(3)],
         )
 

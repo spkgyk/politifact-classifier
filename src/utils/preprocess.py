@@ -1,7 +1,10 @@
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 from joblib import Parallel, delayed
+from IPython.display import display
 from typing import Tuple
 import pandas as pd
+import numpy as np
 
 from utils.create_prompt import create_prompt
 
@@ -38,6 +41,22 @@ def process_subjects(df: pd.DataFrame, print_out=False):
     return df
 
 
+def encode_categorical_data(df: pd.DataFrame):
+    categorical_columns = ["speaker_name", "speaker_state", "speaker_affiliation"]
+    encoder = OneHotEncoder(sparse_output=False)
+    encoded_categorical = encoder.fit_transform(df[categorical_columns])
+
+    # Select the 'subject-' columns
+    subject_columns = [c for c in df.columns if "subject-" in c]
+    subject_data = df[subject_columns].values
+
+    # Combine encoded categorical data and subject data
+    extra_data = np.hstack([encoded_categorical, subject_data])
+
+    df["extra_data"] = list(extra_data)
+    return df
+
+
 def preprocess_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     df = df.map(lambda x: x.lower().replace('"', "").strip() if isinstance(x, str) else x)
     df["label"] = df["Label"].apply(lambda x: int(x.lower() in ["true", "mostly-true"]))
@@ -51,6 +70,11 @@ def preprocess_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if "statement_embedding" in df.columns:
         df["statement_embedding"] = Parallel(n_jobs=-1)(delayed(eval)(row["statement_embedding"]) for _, row in df.iterrows())
 
+    df = encode_categorical_data(df)
+
     train_df, validate_df = train_test_split(df, test_size=0.2, random_state=540)
+
+    # for c in train_df.columns:
+    #     display(c)
 
     return train_df, validate_df
