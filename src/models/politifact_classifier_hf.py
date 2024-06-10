@@ -12,8 +12,8 @@ from typing import Dict
 import pandas as pd
 import os
 
-from .get_metrics import calculate_metrics
-from .preprocess import preprocess_data
+from ..data import preprocess_data
+from ..utils import calculate_metrics
 
 
 class PolitifactClassifierHF:

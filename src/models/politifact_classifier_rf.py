@@ -17,8 +17,8 @@ import numpy as np
 import pickle
 import os
 
-from .get_metrics import calculate_metrics
-from .preprocess import preprocess_data
+from ..data import preprocess_data
+from ..utils import calculate_metrics
 
 
 def extract_embeddings(X):
