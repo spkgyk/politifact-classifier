@@ -41,6 +41,7 @@ class MyModel:
 
         preprocessor = ColumnTransformer(
             transformers=[
+                # ("tfidf", TfidfVectorizer(stop_words="english"), "statement"),
                 ("onehot", OneHotEncoder(handle_unknown="ignore"), ["speaker_affiliation", "speaker_name", "speaker_state"]),
                 ("pca", pca_pipeline, "statement_embedding"),
             ],
