@@ -27,14 +27,18 @@ def standardize_state(state: str):
 def process_subjects(df: pd.DataFrame, print_out=False):
     unique_subjects = set(subject for subjects in df["subjects"] for subject in subjects.split("$"))
 
+    subjects_data = {}
     if print_out:
         print("[")
-        for subject in sorted(unique_subjects):
-            column = df["subjects"].apply(lambda x: int(subject in x))
-            print(f'"{subject}" ({sum(column)}),')
+    for subject in sorted(unique_subjects):
+        column = df["subjects"].apply(lambda x: int(subject in x))
+        count = sum(column)
+        if count > 300:
+            subjects_data[f"subject-{subject}"] = column
+            if print_out:
+                print(f'"{subject}" ({count}),')
+    if print_out:
         print("]")
-
-    subjects_data = {f"subject-{subject}": df["subjects"].apply(lambda x: int(subject in x)) for subject in sorted(unique_subjects)}
 
     subjects_df = pd.DataFrame(subjects_data)
     df = pd.concat([df, subjects_df], axis="columns")
@@ -42,7 +46,7 @@ def process_subjects(df: pd.DataFrame, print_out=False):
 
 
 def encode_categorical_data(df: pd.DataFrame):
-    categorical_columns = ["speaker_name", "speaker_state", "speaker_affiliation"]
+    categorical_columns = ["speaker_affiliation"]
     encoder = OneHotEncoder(sparse_output=False)
     encoded_categorical = encoder.fit_transform(df[categorical_columns])
 
@@ -52,6 +56,7 @@ def encode_categorical_data(df: pd.DataFrame):
 
     # Combine encoded categorical data and subject data
     extra_data = np.hstack([encoded_categorical, subject_data])
+    print(extra_data.shape)
 
     df["extra_data"] = list(extra_data)
     return df

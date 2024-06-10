@@ -10,6 +10,7 @@ from datasets import Dataset, DatasetDict
 from IPython.display import display
 from typing import Dict
 import pandas as pd
+import torch
 import os
 
 from .get_metrics import calculate_metrics
@@ -21,11 +22,7 @@ class ClassificationTrainer:
     def __init__(self, config: Dict) -> None:
         self.config = config
         self.tokenizer = AutoTokenizer.from_pretrained(config["model_name"], trust_remote_code=True)
-        self.model = CustomModel(
-            config["model_name"],
-            num_extra_dims=2967,
-            num_labels=config["num_labels"],
-        )
+        self.model = CustomModel(config)
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         self.training_arguments = TrainingArguments(**config["training_arguments"])
 
@@ -42,7 +39,7 @@ class ClassificationTrainer:
 
     def _tokenize(self, entry: Dict) -> Dict:
         tokenized_inputs = self.tokenizer(entry["prompt"])
-        tokenized_inputs["extra_data"] = entry["extra_data"]
+        tokenized_inputs["extra_data"] = torch.tensor(entry["extra_data"], dtype=torch.float32)
         return tokenized_inputs
 
     def _compute_metrics(self, pred) -> Dict:

@@ -1,6 +1,6 @@
 # model_name: FacebookAI/roberta-base
-model_name: google-bert/bert-base-uncased
-# model_name: distilbert/distilbert-base-uncased
+# model_name: google-bert/bert-base-uncased
+model_name: distilbert/distilbert-base-uncased
 num_labels: 2
 inference_batch_size: 64
 inference_model: output/google-bert/bert-base-uncased (GOOD2)
